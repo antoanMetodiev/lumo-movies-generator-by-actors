@@ -66,6 +66,8 @@ dependencies {
     testImplementation 'com.jayway.jsonpath:json-path:2.6.0'
 
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // Pushes JVM/process metrics to Grafana Cloud via OTLP — see application.properties.
+    implementation 'io.micrometer:micrometer-registry-otlp'
 
     // За DevTools в разработка
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
