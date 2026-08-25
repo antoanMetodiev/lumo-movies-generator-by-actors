@@ -25,9 +25,11 @@ func Load() Config {
 		// Java's server.port=9999 (the Dockerfile's EXPOSE 8888 is a
 		// pre-existing mismatch in the original — 9999 is what the app
 		// actually binds to).
-		Port:            envOr("PORT", "9999"),
-		TMDBAPIKey:      os.Getenv("TMDB_API_KEY"),
-		TMDBBaseURL:     os.Getenv("TMDB_BASE_URL"),
+		Port:       envOr("PORT", "9999"),
+		TMDBAPIKey: os.Getenv("TMDB_API_KEY"),
+		// Not a secret (just TMDB's public API host) — default it so local
+		// dev doesn't need it set explicitly.
+		TMDBBaseURL:     envOr("TMDB_BASE_URL", "https://api.themoviedb.org"),
 		GrafanaEnabled:  os.Getenv("GRAFANA_OTLP_ENABLED") == "true",
 		GrafanaEndpoint: os.Getenv("GRAFANA_OTLP_ENDPOINT"),
 		GrafanaAuth:     os.Getenv("GRAFANA_OTLP_AUTH"),
