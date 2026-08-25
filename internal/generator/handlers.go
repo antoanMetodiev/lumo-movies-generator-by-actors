@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -25,14 +26,21 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 func (h *Handlers) addMoviesByActor(w http.ResponseWriter, r *http.Request) {
 	imdbID := r.PathValue("imdb_id")
 	// Fire-and-forget, matching the Java controller's try/catch-and-log —
-	// the caller gets a 200 as soon as the request is accepted.
+	// the caller gets a 200 as soon as the request is accepted. Must not use
+	// r.Context() inside the goroutine: net/http cancels the request context
+	// as soon as this handler returns, which happens almost immediately here
+	// — every downstream DB write in AddMoviesByActor would then fail with
+	// "context canceled" after the (real, multi-second) TMDB fetches finish.
+	// WithoutCancel keeps any request-scoped values without inheriting that
+	// cancellation.
+	ctx := context.WithoutCancel(r.Context())
 	go func() {
 		defer func() {
 			if rec := recover(); rec != nil {
 				log.Printf("addMoviesByActor(%q) panic: %v", imdbID, rec)
 			}
 		}()
-		h.svc.AddMoviesByActor(r.Context(), imdbID)
+		h.svc.AddMoviesByActor(ctx, imdbID)
 	}()
 }
 
