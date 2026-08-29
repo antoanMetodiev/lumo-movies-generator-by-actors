@@ -53,10 +53,11 @@ func encodeStringList(list []string) string {
 // row (including this service's own video_urls column, always empty —
 // never populated anywhere in the original either), its images, and the
 // movies_actors links to already-managed actor ids. Runs in a transaction
-// since it's several statements that must land together. tmdb_id,
-// vidm_player, fmoon_player, abs_player, vidme_player, and players_checked
-// are left at their column defaults (NULL/false) — this service's own Movie
-// entity never had those fields to begin with.
+// since it's several statements that must land together. vidm_player,
+// fmoon_player, abs_player, vidme_player, and players_checked are left at
+// their column defaults (NULL/false) — this service's own Movie entity
+// never had those fields to begin with. tmdb_id is populated (see the
+// models.Movie doc comment for why that one's no longer left NULL too).
 func (r *Repository) InsertMovie(ctx context.Context, m *models.Movie, castActorIDs []uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -71,11 +72,11 @@ func (r *Repository) InsertMovie(ctx context.Context, m *models.Movie, castActor
 	_, err = tx.Exec(ctx, `
 		INSERT INTO movies (id, version, title, poster_img_url, special_text, trailer_url,
 			search_tag, genres, description, release_date, tmdb_rating, background_img_url, created_at,
-			video_url, trailer_urls, video_urls)
-		VALUES ($1,0,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+			video_url, tmdb_id, trailer_urls, video_urls)
+		VALUES ($1,0,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		m.ID, m.Title, m.PosterImgURL, m.SpecialText, m.TrailerURL,
 		m.SearchTag, m.Genres, m.Description, m.ReleaseDate, m.TmdbRating, m.BackgroundImgURL, m.CreatedAt,
-		m.VideoURL, encodeStringList(m.TrailerURLs), encodeStringList(m.VideoURLs),
+		m.VideoURL, m.TmdbID, encodeStringList(m.TrailerURLs), encodeStringList(m.VideoURLs),
 	)
 	if err != nil {
 		return err

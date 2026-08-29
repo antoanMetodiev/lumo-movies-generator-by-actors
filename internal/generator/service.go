@@ -223,6 +223,7 @@ func (s *Service) processOneMovie(ctx context.Context, movieJSON map[string]any)
 	}
 
 	movie.VideoURL = videoURL
+	movie.TmdbID = &movieID
 	movie.SearchTag = title
 	movie.Title = title
 	if description != "" {
