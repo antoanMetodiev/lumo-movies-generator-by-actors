@@ -42,6 +42,14 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Was missing here — every sibling service (lumo-movies-svc,
+	// lumo-series-svc, lumo-movies-generator, lumo-payments-svc,
+	// lumo-user-svc) already starts this; this one dialed a pool and never
+	// pinged it again, so its share of the (shared, with lumo-movies-svc)
+	// movies database went unpinged by this instance specifically whenever
+	// it was the only one awake.
+	dbx.StartKeepAlivePing(ctx, pool, log.Printf)
+
 	shutdownMetrics, err := metrics.Start(ctx, cfg.GrafanaEnabled, cfg.GrafanaEndpoint, cfg.GrafanaAuth)
 	if err != nil {
 		log.Printf("metrics exporter did not start: %v", err)
@@ -62,6 +70,14 @@ func main() {
 	// check and any uptime monitor hit this. The Java source has no
 	// heartbeat/@Scheduled keep-alive class in this particular service.
 	mux.HandleFunc("GET /actuator/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"UP"}`))
+	})
+	// Plain, non-legacy-named alias of the endpoint above -- this is what
+	// lumo-api-gateway's heartbeat.StartFleetHealthPing pings on its own
+	// 2-minute schedule to keep every downstream service warm on Render's
+	// free tier, independent of an end user ever hitting this service.
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"UP"}`))
 	})

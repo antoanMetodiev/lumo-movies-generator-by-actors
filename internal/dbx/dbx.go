@@ -88,3 +88,53 @@ func Dial(ctx context.Context, rawURL, username, password string) (*pgxpool.Pool
 
 	return pool, nil
 }
+
+// StartKeepAlivePing mirrors DatabaseRequestPerDay: a trivial query at
+// 00:00 and 12:00 Europe/Sofia every day, just to keep the DB from idling
+// out on tiers that spin connections down. Runs until ctx is cancelled.
+//
+// Every sibling service (lumo-movies-svc, lumo-series-svc,
+// lumo-movies-generator, lumo-payments-svc, lumo-user-svc) already has this
+// — this package was missing it entirely (dbx.go only had buildDSN/Dial),
+// so cmd/server/main.go dialed a pool here and never touched it again.
+func StartKeepAlivePing(ctx context.Context, pool *pgxpool.Pool, logf func(format string, args ...any)) {
+	loc, err := time.LoadLocation("Europe/Sofia")
+	if err != nil {
+		loc = time.UTC
+	}
+
+	go func() {
+		for {
+			next := nextMidnightOrNoon(time.Now().In(loc))
+			timer := time.NewTimer(time.Until(next))
+
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+				var one int
+				pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				err := pool.QueryRow(pingCtx, "SELECT 1").Scan(&one)
+				cancel()
+				if err != nil {
+					logf("database keep-alive ping failed: %v", err)
+				} else {
+					logf("database keep-alive ping ok")
+				}
+			}
+		}
+	}()
+}
+
+func nextMidnightOrNoon(now time.Time) time.Time {
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	noon := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
+
+	for _, t := range []time.Time{midnight, noon, midnight.AddDate(0, 0, 1)} {
+		if t.After(now) {
+			return t
+		}
+	}
+	return midnight.AddDate(0, 0, 1)
+}
