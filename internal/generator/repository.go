@@ -6,6 +6,7 @@ package generator
 import (
 	"context"
 	"errors"
+	"lumo-movies-generator-by-actors/internal/enrich"
 	"strings"
 
 	"github.com/google/uuid"
@@ -103,5 +104,13 @@ func (r *Repository) InsertMovie(ctx context.Context, m *models.Movie, castActor
 		}
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	// Translations, artwork and facts for the new title — in the background
+	// (internal/enrich); the sync in tools/translations-backfill catches misses.
+	if m.TmdbID != nil {
+		enrich.Title(r.pool, "movie", *m.TmdbID)
+	}
+	return nil
 }
