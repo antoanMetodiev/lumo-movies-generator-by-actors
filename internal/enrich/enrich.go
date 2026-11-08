@@ -2,7 +2,8 @@
 // catalog shows beyond its English record: Bulgarian / Greek / Spanish
 // titles, descriptions and taglines, each language's poster / backdrop /
 // logo / trailer (title_translations), the facts panel (title_facts) and,
-// for series, episode names and descriptions (episode_translations).
+// for series, episode names and descriptions (episode_translations), and
+// the cast's names, biographies and places of birth (actor_translations).
 //
 // Title runs in the background after a repository insert, so adding a title
 // never waits on (or fails because of) TMDB. Anything it misses is caught by
@@ -52,6 +53,8 @@ func Title(pool *pgxpool.Pool, kind, tmdbID string) {
 		if err := run(ctx, pool, kind, tmdbID); err != nil {
 			log.Printf("enrich %s %s: %v", kind, tmdbID, err)
 		}
+		// Then the cast: actors new to the catalog, in every language (actors.go).
+		castActors(pool, kind, tmdbID)
 	}()
 }
 
